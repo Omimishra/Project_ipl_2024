@@ -167,46 +167,109 @@ if choice == 'All teams':
                  barmode='group')
     st.plotly_chart(fig)
 
+# elif choice == 'Team Analysis':
+#      st.header('Select a team to view their performance.')
+#      st.subheader("Detailed data view")
+#      df['win'] = df.apply(lambda row: row['home_team_abbrev'] if row['home_win'] else row['away_team_abbrev'], axis=1)
+#      df['loss'] = df.apply(lambda row: row['away_team_abbrev'] if row['home_win'] else row['home_team_abbrev'], axis=1)
+#     # Count wins and losses for each team
+#      wins = df['win'].value_counts().reset_index()
+#      losses = df['loss'].value_counts().reset_index()
+#      wins.columns= ['team_name','win_counts']
+#      losses.columns= ['team_name','loss_counts']
+#     # Merge wins and losses into a single DataFrame
+#      team_stats = pd.merge(wins, losses, left_on='team_name', right_on='team_name', how='outer')
+#      team_stats.columns = ['team', 'wins', 'losses']
+#      team_stats = team_stats.fillna(0) 
+
+#      team = st.sidebar.selectbox('Select a team', team_stats['team'].unique())
+
+#      h = df.groupby(by='home_team_abbrev').get_group(team)
+#      a = df.groupby(by='away_team_abbrev').get_group(team)
+#      team_= pd.concat([h,a])
+#      team_ = team_.sort_values(by='date')
+#      team_ = team_.drop(columns=['win','loss'])
+#      st.dataframe(team_,use_container_width=True)
+    
+#      st.subheader('Team Performance')
+#      # Create a new column to categorize the outcome
+#      team_['outcome'] = team_['result_outcome'].apply(lambda x: 'Win' if f'{team} won' in x else 'Loss')
+
+#     # Create the sunburst chart
+#      st.write(f'Here is the performance of team {team} with toss winners, toss decison taken by them and outcome in a heirarchial structure')
+#      team_ = team_.dropna()
+#      fig1 = px.treemap(
+#         team_,
+#         path=['cleaned_venue', 'toss_winner','toss_decision', 'outcome'],  # Hierarchy of levels to create the treemap
+#         values=None,  # Optional: Size of each sector; can be set to a numeric column if relevant
+#         color='outcome',  # Color the segments based on match outcomes
+#         # color_discrete_map={'Win': 'blue', 'Loss': 'orange'},  # Define colors for win/loss
+#         title=f'Treemap of {team} Performance'
+#     )
+#      st.plotly_chart(fig1)
+
 elif choice == 'Team Analysis':
-     st.header('Select a team to view their performance.')
-     st.subheader("Detailed data view")
-     df['win'] = df.apply(lambda row: row['home_team_abbrev'] if row['home_win'] else row['away_team_abbrev'], axis=1)
-     df['loss'] = df.apply(lambda row: row['away_team_abbrev'] if row['home_win'] else row['home_team_abbrev'], axis=1)
-    # Count wins and losses for each team
-     wins = df['win'].value_counts().reset_index()
-     losses = df['loss'].value_counts().reset_index()
-     wins.columns= ['team_name','win_counts']
-     losses.columns= ['team_name','loss_counts']
-    # Merge wins and losses into a single DataFrame
-     team_stats = pd.merge(wins, losses, left_on='team_name', right_on='team_name', how='outer')
-     team_stats.columns = ['team', 'wins', 'losses']
-     team_stats = team_stats.fillna(0) 
 
-     team = st.sidebar.selectbox('Select a team', team_stats['team'].unique())
+    st.header("Team-wise Performance Analysis")
+    st.write("Explore match outcomes, trends, toss impact, batting strategy, and venue-wise performance for any IPL team.")
 
-     h = df.groupby(by='home_team_abbrev').get_group(team)
-     a = df.groupby(by='away_team_abbrev').get_group(team)
-     team_= pd.concat([h,a])
-     team_ = team_.sort_values(by='date')
-     team_ = team_.drop(columns=['win','loss'])
-     st.dataframe(team_,use_container_width=True)
+    # ------------------------------------------------------
+    # 1. DATA PREPARATION
+    # ------------------------------------------------------
+    df['win_team'] = df.apply(lambda r: r['home_team_abbrev'] if r['home_win'] else r['away_team_abbrev'], axis=1)
+    df['loss_team'] = df.apply(lambda r: r['away_team_abbrev'] if r['home_win'] else r['home_team_abbrev'], axis=1)
+
+    # Summary table
+    wins = df['win_team'].value_counts().rename_axis('team').reset_index(name='wins')
+    losses = df['loss_team'].value_counts().rename_axis('team').reset_index(name='losses')
+
+    team_stats = pd.merge(wins, losses, on='team', how='outer').fillna(0)
+    team_stats['matches'] = team_stats['wins'] + team_stats['losses']
+    team_stats['win_pct'] = round((team_stats['wins'] / team_stats['matches']) * 100, 2)
+
+    # Choose team
+    team = st.sidebar.selectbox("Select a Team", sorted(team_stats['team'].unique()))
+
+    # Matches of selected team
+    home = df[df['home_team_abbrev'] == team]
+    away = df[df['away_team_abbrev'] == team]
+    team_df = pd.concat([home, away]).sort_values('date').reset_index(drop=True)
+
+    copied_df = team_df.copy()
+    copied_df = copied_df.drop(copied_df.columns[0], axis=1)
+    copied_df = copied_df.drop(columns=['home_team_abbrev','away_team_abbrev','home_target','away_target','result_outcome','home_win','away_win','win','loss','win_team', 'loss_team'])
+
+    st.subheader(f"Match Dataset for {team}")
+    st.dataframe(copied_df, use_container_width=True)
+# 2. KPI SUMMARY
     
-     st.subheader('Team Performance')
-     # Create a new column to categorize the outcome
-     team_['outcome'] = team_['result_outcome'].apply(lambda x: 'Win' if f'{team} won' in x else 'Loss')
+    st.subheader("📊 Key Performance Indicators")
 
-    # Create the sunburst chart
-     st.write(f'Here is the performance of team {team} with toss winners, toss decison taken by them and outcome in a heirarchial structure')
-     team_ = team_.dropna()
-     fig1 = px.treemap(
-        team_,
-        path=['cleaned_venue', 'toss_winner','toss_decision', 'outcome'],  # Hierarchy of levels to create the treemap
-        values=None,  # Optional: Size of each sector; can be set to a numeric column if relevant
-        color='outcome',  # Color the segments based on match outcomes
-        # color_discrete_map={'Win': 'blue', 'Loss': 'orange'},  # Define colors for win/loss
-        title=f'Treemap of {team} Performance'
+    ts = team_stats[team_stats['team'] == team].iloc[0]
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Matches", int(ts['matches']))
+    c2.metric("Wins", int(ts['wins']))
+    c3.metric("Losses", int(ts['losses']))
+    c4.metric("Win %", f"{ts['win_pct']}%")
+
+    team_df['outcome'] = team_df['result_outcome'].apply(
+        lambda x: "Win" if isinstance(x, str) and f"{team} won" in x.lower() else "Loss"
     )
-     st.plotly_chart(fig1)
+    # TREEMAP ANALYSIS (Venue → Toss → Decision → Outcome)
+    st.subheader("🏟️Venue & Toss Impact — Hierarchical View")
+
+    team_df['cleaned_venue'] = team_df['cleaned_venue'].fillna("Unknown Venue")
+    team_df['toss_winner'] = team_df['toss_winner'].fillna("Unknown Toss Winner")
+    team_df['toss_decision'] = team_df['toss_decision'].fillna("Unknown Decision")
+
+    fig1 = px.treemap(
+        team_df,
+        path=['cleaned_venue', 'toss_winner', 'toss_decision', 'outcome'],
+        color='outcome',
+       title=f"Treemap — Venue → Toss → Decision → Outcome for {team}"
+    )
+
+    st.plotly_chart(fig1, use_container_width=True)
 
 
-    
